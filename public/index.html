@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON Beautifier</title>
+  <style>
+    /* ───────── Reset & Base ───────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      display: flex; justify-content: center; align-items: flex-start;
+      min-height: 100vh; padding: 2rem;
+      transition: background .3s, color .3s;
+    }
+
+    /* ───────── Light Theme (default) ───────── */
+    body {
+      background: #f0f2f5; color: #1a1a2e;
+    }
+    .card        { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    .drop-zone   { border-color: #b0b8c4; background: #fafbfc; color: #6b7685; }
+    .drop-zone.hover { border-color: #4361ee; background: #eef1ff; }
+    .btn         { background: #4361ee; color: #fff; }
+    .btn:hover:not(:disabled) { background: #3a56d4; }
+    .btn:disabled { background: #c5cdd8; color: #8892a0; cursor: not-allowed; }
+    .btn.secondary { background: #e8ecf1; color: #3a3f4b; }
+    .btn.secondary:hover:not(:disabled) { background: #dce1e8; }
+    .error-banner { background: #fdecea; border: 1px solid #f5c6cb; color: #842029; }
+    .output-area  { background: #fafbfc; border: 1px solid #dfe3e8; }
+    .tab.active   { border-bottom-color: #4361ee; color: #4361ee; }
+    .tab          { color: #6b7685; border-bottom: 2px solid transparent; }
+
+    /* Syntax – light */
+    .json-key     { color: #881391; }
+    .json-string  { color: #0b7c29; }
+    .json-number  { color: #1a1aa6; }
+    .json-bool    { color: #d63384; }
+    .json-null    { color: #6c757d; }
+
+    /* Tree – light */
+    .tree-caret       { color: #4361ee; }
+    .tree-key         { color: #881391; }
+    .tree-val-string  { color: #0b7c29; }
+    .tree-val-number  { color: #1a1aa6; }
+    .tree-val-bool    { color: #d63384; }
+    .tree-val-null    { color: #6c757d; font-style: italic; }
+
+    /* ───────── Dark Theme ───────── */
+    body.dark {
+      background: #1a1a2e; color: #e0e0e0;
+    }
+    body.dark .card        { background: #16213e; box-shadow: 0 2px 12px rgba(0,0,0,.4); }
+    body.dark .drop-zone   { border-color: #3a3f5c; background: #1a1f3a; color: #8892a0; }
+    body.dark .drop-zone.hover { border-color: #6c8bfa; background: #232b4a; }
+    body.dark .btn         { background: #6c8bfa; color: #fff; }
+    body.dark .btn:hover:not(:disabled) { background: #5a78e0; }
+    body.dark .btn:disabled { background: #2e3450; color: #555e73; }
+    body.dark .btn.secondary { background: #2a3050; color: #b0b8c4; }
+    body.dark .btn.secondary:hover:not(:disabled) { background: #343b5c; }
+    body.dark .error-banner { background: #3b1c1c; border-color: #773333; color: #f5a9a9; }
+    body.dark .output-area  { background: #111729; border-color: #2e3450; }
+    body.dark .tab.active   { border-bottom-color: #6c8bfa; color: #6c8bfa; }
+    body.dark .tab          { color: #8892a0; }
+
+    /* Syntax – dark */
+    body.dark .json-key     { color: #c792ea; }
+    body.dark .json-string  { color: #c3e88d; }
+    body.dark .json-number  { color: #f78c6c; }
+    body.dark .json-bool    { color: #ff5370; }
+    body.dark .json-null    { color: #676e95; }
+
+    /* Tree – dark */
+    body.dark .tree-caret       { color: #6c8bfa; }
+    body.dark .tree-key         { color: #c792ea; }
+    body.dark .tree-val-string  { color: #c3e88d; }
+    body.dark .tree-val-number  { color: #f78c6c; }
+    body.dark .tree-val-bool    { color: #ff5370; }
+    body.dark .tree-val-null    { color: #676e95; }
+
+    /* ───────── Layout ───────── */
+    .card {
+      width: 100%; max-width: 900px; border-radius: 12px;
+      padding: 2rem; position: relative;
+    }
+
+    h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+    .subtitle { font-size: .9rem; color: #6b7685; margin-bottom: 1.5rem; }
+    body.dark .subtitle { color: #8892a0; }
+
+    /* Theme toggle */
+    .theme-toggle {
+      position: absolute; top: 1.5rem; right: 1.5rem;
+      background: none; border: none; font-size: 1.4rem; cursor: pointer;
+      padding: .35rem; border-radius: 8px; transition: background .2s;
+      color: inherit;
+    }
+    .theme-toggle:hover { background: rgba(128,128,128,.15); }
+
+    /* ───────── Drop Zone ───────── */
+    .drop-zone {
+      border: 2px dashed; border-radius: 10px; padding: 2.5rem 1.5rem;
+      text-align: center; cursor: pointer; transition: all .25s;
+      position: relative; margin-bottom: 1rem;
+    }
+    .drop-zone p { pointer-events: none; font-size: .95rem; }
+    .drop-zone .icon { font-size: 2rem; margin-bottom: .5rem; display: block; }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .file-name {
+      margin-top: .5rem; font-size: .85rem; font-weight: 600;
+    }
+
+    /* Paste area */
+    .paste-area {
+      width: 100%; min-height: 100px; resize: vertical;
+      border: 1px solid #dfe3e8; border-radius: 8px; padding: .75rem;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: .85rem; margin-bottom: 1rem;
+      background: inherit; color: inherit; transition: border-color .2s;
+    }
+    .paste-area:focus { outline: none; border-color: #4361ee; }
+    body.dark .paste-area { border-color: #2e3450; }
+    body.dark .paste-area:focus { border-color: #6c8bfa; }
+
+    /* ───────── Buttons ───────── */
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem;
+    }
+    .btn {
+      border: none; border-radius: 8px; padding: .55rem 1.2rem;
+      font-size: .85rem; font-weight: 600; cursor: pointer;
+      transition: background .2s; display: inline-flex; align-items: center; gap: .35rem;
+    }
+
+    /* ───────── Error Banner ───────── */
+    .error-banner {
+      border-radius: 8px; padding: .75rem 1rem; margin-bottom: 1rem;
+      display: none; align-items: center; gap: .75rem;
+      font-size: .85rem; animation: slideDown .25s ease;
+    }
+    .error-banner.visible { display: flex; }
+    .error-banner .close-btn {
+      margin-left: auto; background: none; border: none;
+      font-size: 1.1rem; cursor: pointer; color: inherit; line-height: 1;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ───────── Tabs ───────── */
+    .tabs {
+      display: flex; gap: 1.25rem; margin-bottom: .75rem;
+    }
+    .tab {
+      background: none; border: none; padding: .4rem 0;
+      font-size: .85rem; font-weight: 600; cursor: pointer;
+      transition: color .2s, border-color .2s;
+    }
+
+    /* ───────── Output ───────── */
+    .output-area {
+      border-radius: 8px; padding: 1rem; min-height: 120px;
+      overflow: auto; max-height: 60vh;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: .82rem; line-height: 1.55; white-space: pre-wrap;
+      word-break: break-word; display: none;
+    }
+    .output-area.visible { display: block; }
+    .output-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 120px; color: #8892a0; font-size: .9rem;
+    }
+
+    /* ───────── Tree View ───────── */
+    .tree { list-style: none; padding-left: 1.25rem; }
+    .tree.root { padding-left: 0; }
+    .tree li { margin: .15rem 0; }
+    .tree-caret {
+      cursor: pointer; user-select: none; display: inline-block;
+      width: 1rem; text-align: center; font-size: .7rem;
+      transition: transform .15s; vertical-align: middle;
+    }
+    .tree-caret.open { transform: rotate(90deg); }
+    .tree-children { display: none; }
+    .tree-children.open { display: block; }
+    .tree-key { font-weight: 600; }
+    .tree-bracket { color: #8892a0; }
+
+    /* ───────── Toast ───────── */
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff; padding: .6rem 1.4rem;
+      border-radius: 8px; font-size: .85rem; font-weight: 500;
+      opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+
+    <h1>JSON Beautifier</h1>
+    <p class="subtitle">Drop a file, paste JSON, or click to browse — then beautify, minify, copy, or download.</p>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone">
+      <span class="icon">📂</span>
+      <p>Drag &amp; drop a <strong>.json</strong> file here or <strong>click to browse</strong></p>
+      <p class="file-name" id="fileName"></p>
+      <input type="file" id="fileInput" accept=".json,application/json" />
+    </div>
+
+    <!-- Paste Area -->
+    <textarea class="paste-area" id="pasteArea" placeholder="…or paste raw JSON here"></textarea>
+
+    <!-- Action Buttons -->
+    <div class="toolbar">
+      <button class="btn" id="btnBeautify" disabled>✨ Beautify</button>
+      <button class="btn" id="btnMinify" disabled>🗜️ Minify</button>
+      <button class="btn secondary" id="btnCopy" disabled>📋 Copy</button>
+      <button class="btn secondary" id="btnDownload" disabled>⬇️ Download</button>
+    </div>
+
+    <!-- Error Banner -->
+    <div class="error-banner" id="errorBanner">
+      <span id="errorMsg"></span>
+      <button class="close-btn" id="errorClose">&times;</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-view="formatted">Formatted</button>
+      <button class="tab" data-view="tree">Tree</button>
+    </div>
+
+    <!-- Output -->
+    <div class="output-area visible" id="formattedView">
+      <div class="output-placeholder" id="placeholder">Output will appear here…</div>
+      <pre id="formattedOutput" style="display:none;margin:0;"></pre>
+    </div>
+    <div class="output-area" id="treeView"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /* ─────────────────── State ─────────────────── */
+    let parsedJSON   = null;
+    let currentText  = '';
+    let lastAction   = 'beautified'; // or 'minified'
+    const MAX_SIZE   = 10 * 1024 * 1024; // 10 MB
+
+    /* ─────────────────── DOM refs ─────────────────── */
+    const $body          = document.body;
+    const $themeToggle   = document.getElementById('themeToggle');
+    const $dropZone      = document.getElementById('dropZone');
+    const $fileInput     = document.getElementById('fileInput');
+    const $fileName      = document.getElementById('fileName');
+    const $pasteArea     = document.getElementById('pasteArea');
+    const $btnBeautify   = document.getElementById('btnBeautify');
+    const $btnMinify     = document.getElementById('btnMinify');
+    const $btnCopy       = document.getElementById('btnCopy');
+    const $btnDownload   = document.getElementById('btnDownload');
+    const $errorBanner   = document.getElementById('errorBanner');
+    const $errorMsg      = document.getElementById('errorMsg');
+    const $errorClose    = document.getElementById('errorClose');
+    const $formattedView = document.getElementById('formattedView');
+    const $formattedOut  = document.getElementById('formattedOutput');
+    const $treeView      = document.getElementById('treeView');
+    const $placeholder   = document.getElementById('placeholder');
+    const $toast         = document.getElementById('toast');
+    const $tabs          = document.querySelectorAll('.tab');
+
+    /* ─────────────────── Theme ─────────────────── */
+    (function initTheme() {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+        $body.classList.add('dark');
+        $themeToggle.textContent = '☀️';
+      }
+    })();
+
+    $themeToggle.addEventListener('click', () => {
+      $body.classList.toggle('dark');
+      const dark = $body.classList.contains('dark');
+      $themeToggle.textContent = dark ? '☀️' : '🌙';
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    });
+
+    /* ─────────────────── Drop Zone ─────────────────── */
+    ['dragenter', 'dragover'].forEach(ev =>
+      $dropZone.addEventListener(ev, e => { e.preventDefault(); $dropZone.classList.add('hover'); })
+    );
+    ['dragleave', 'drop'].forEach(ev =>
+      $dropZone.addEventListener(ev, e => { e.preventDefault(); $dropZone.classList.remove('hover'); })
+    );
+
+    $dropZone.addEventListener('drop', e => {
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    $fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    /* ─────────────────── File Handling ─────────────────── */
+    function handleFile(file) {
+      // Extension check
+      if (!file.name.toLowerCase().endsWith('.json')) {
+        showError('Please drop a .json file.');
+        return;
+      }
+      // Size guard (10 MB)
+      if (file.size > MAX_SIZE) {
+        showError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 10 MB.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        $pasteArea.value = reader.result;
+        $fileName.textContent = '📎 ' + file.name;
+        tryParse(reader.result);
+      };
+      reader.readAsText(file);
+    }
+
+    /* ─────────────────── Paste Handling ─────────────────── */
+    $pasteArea.addEventListener('input', () => {
+      $fileName.textContent = '';
+      const val = $pasteArea.value.trim();
+      if (val) {
+        tryParse(val);
+      } else {
+        parsedJSON = null;
+        toggleButtons(false);
+        hideError();
+      }
+    });
+
+    /* ─────────────────── Parse ─────────────────── */
+    function tryParse(raw) {
+      try {
+        parsedJSON = JSON.parse(raw);
+        hideError();
+        toggleButtons(true);
+      } catch (err) {
+        parsedJSON = null;
+        toggleButtons(false);
+        showError('Invalid JSON — ' + err.message);
+      }
+    }
+
+    /* ─────────────────── Buttons State ─────────────────── */
+    function toggleButtons(on) {
+      [$btnBeautify, $btnMinify, $btnCopy, $btnDownload].forEach(b => b.disabled = !on);
+    }
+
+    /* ─────────────────── Error Banner ─────────────────── */
+    function showError(msg) {
+      $errorMsg.textContent = msg;
+      $errorBanner.classList.add('visible');
+    }
+    function hideError() {
+      $errorBanner.classList.remove('visible');
+    }
+    $errorClose.addEventListener('click', hideError);
+
+    /* ─────────────────── Beautify ─────────────────── */
+    $btnBeautify.addEventListener('click', () => {
+      if (!parsedJSON) return;
+      lastAction  = 'beautified';
+      currentText = JSON.stringify(parsedJSON, null, 2);
+      renderFormatted(currentText);
+      renderTree(parsedJSON);
+    });
+
+    /* ─────────────────── Minify ─────────────────── */
+    $btnMinify.addEventListener('click', () => {
+      if (!parsedJSON) return;
+      lastAction  = 'minified';
+      currentText = JSON.stringify(parsedJSON);
+      renderFormatted(currentText);
+      renderTree(parsedJSON);
+    });
+
+    /* ─────────────────── Copy ─────────────────── */
+    $btnCopy.addEventListener('click', async () => {
+      if (!currentText) { toast('Nothing to copy'); return; }
+      try {
+        await navigator.clipboard.writeText(currentText);
+        toast('Copied to clipboard!');
+      } catch { toast('Copy failed — try manually'); }
+    });
+
+    /* ─────────────────── Download ─────────────────── */
+    $btnDownload.addEventListener('click', () => {
+      if (!currentText) { toast('Nothing to download'); return; }
+      const blob = new Blob([currentText], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = lastAction + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    /* ─────────────────── Render Formatted ─────────────────── */
+    function renderFormatted(text) {
+      $placeholder.style.display = 'none';
+      $formattedOut.style.display = 'block';
+      $formattedOut.innerHTML = syntaxHighlight(text);
+    }
+
+    function syntaxHighlight(json) {
+      // Escape HTML, then wrap tokens in spans
+      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return json.replace(
+        /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        match => {
+          let cls = 'json-number';
+          if (/^"/.test(match)) {
+            cls = /:$/.test(match) ? 'json-key' : 'json-string';
+          } else if (/true|false/.test(match)) {
+            cls = 'json-bool';
+          } else if (/null/.test(match)) {
+            cls = 'json-null';
+          }
+          return `<span class="${cls}">${match}</span>`;
+        }
+      );
+    }
+
+    /* ─────────────────── Render Tree ─────────────────── */
+    function renderTree(data) {
+      $treeView.innerHTML = '';
+      const ul = buildTree(data, true);
+      $treeView.appendChild(ul);
+    }
+
+    function buildTree(data, isRoot) {
+      const ul = document.createElement('ul');
+      ul.className = 'tree' + (isRoot ? ' root' : '');
+
+      if (Array.isArray(data)) {
+        data.forEach((item, i) => {
+          ul.appendChild(treeNode(String(i), item));
+        });
+      } else if (data !== null && typeof data === 'object') {
+        Object.keys(data).forEach(key => {
+          ul.appendChild(treeNode(key, data[key]));
+        });
+      }
+      return ul;
+    }
+
+    function treeNode(key, value) {
+      const li = document.createElement('li');
+
+      if (value !== null && typeof value === 'object') {
+        const isArr = Array.isArray(value);
+        const len   = isArr ? value.length : Object.keys(value).length;
+
+        const caret = document.createElement('span');
+        caret.className = 'tree-caret';
+        caret.textContent = '▶';
+
+        const keySpan = document.createElement('span');
+        keySpan.className = 'tree-key';
+        keySpan.textContent = key;
+
+        const bracket = document.createElement('span');
+        bracket.className = 'tree-bracket';
+        bracket.textContent = isArr ? ` [${len}]` : ` {${len}}`;
+
+        li.appendChild(caret);
+        li.appendChild(document.createTextNode(' '));
+        li.appendChild(keySpan);
+        li.appendChild(bracket);
+
+        const childUl = buildTree(value, false);
+        childUl.className = 'tree tree-children';
+        li.appendChild(childUl);
+
+        caret.addEventListener('click', () => {
+          caret.classList.toggle('open');
+          childUl.classList.toggle('open');
+        });
+      } else {
+        // Leaf
+        const spacer = document.createElement('span');
+        spacer.style.display = 'inline-block';
+        spacer.style.width = '1rem';
+
+        const keySpan = document.createElement('span');
+        keySpan.className = 'tree-key';
+        keySpan.textContent = key;
+
+        const valSpan = document.createElement('span');
+        let cls, display;
+        if (typeof value === 'string')      { cls = 'tree-val-string'; display = `"${value}"`; }
+        else if (typeof value === 'number') { cls = 'tree-val-number'; display = String(value); }
+        else if (typeof value === 'boolean'){ cls = 'tree-val-bool';   display = String(value); }
+        else                                 { cls = 'tree-val-null';   display = 'null'; }
+        valSpan.className = cls;
+        valSpan.textContent = display;
+
+        li.appendChild(spacer);
+        li.appendChild(keySpan);
+        li.appendChild(document.createTextNode(': '));
+        li.appendChild(valSpan);
+      }
+      return li;
+    }
+
+    /* ─────────────────── Tabs ─────────────────── */
+    $tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        $tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const view = tab.dataset.view;
+        $formattedView.classList.toggle('visible', view === 'formatted');
+        $treeView.classList.toggle('visible', view === 'tree');
+      });
+    });
+
+    /* ─────────────────── Toast ─────────────────── */
+    function toast(msg) {
+      $toast.textContent = msg;
+      $toast.classList.add('show');
+      setTimeout(() => $toast.classList.remove('show'), 1800);
+    }
+  </script>
+</body>
+</html>
