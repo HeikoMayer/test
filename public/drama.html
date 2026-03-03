@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=11">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drama Page</title>
     <style>
@@ -27,16 +28,36 @@
     <div id="result"></div>
 
     <script>
-        document.getElementById('start-btn').addEventListener('click', function () {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'https://emeaie.azurewebsites.net/perf/default.aspx', false);
-            xhr.send();
-            if (xhr.status === 200) {
-                document.getElementById('result').innerHTML = xhr.responseText;
-            } else {
-                document.getElementById('result').textContent = 'Error: ' + xhr.status + ' ' + xhr.statusText;
+        (function () {
+            var btn = document.getElementById('start-btn');
+            var resultDiv = document.getElementById('result');
+
+            function handleClick() {
+                var xhr;
+                try {
+                    xhr = new XMLHttpRequest();
+                } catch (e) {
+                    try {
+                        xhr = new ActiveXObject('Msxml2.XMLHTTP');
+                    } catch (e2) {
+                        xhr = new ActiveXObject('Microsoft.XMLHTTP');
+                    }
+                }
+                xhr.open('GET', 'https://emeaie.azurewebsites.net/perf/default.aspx', false);
+                xhr.send(null);
+                if (xhr.status === 200) {
+                    resultDiv.innerHTML = xhr.responseText;
+                } else {
+                    resultDiv.innerHTML = 'Error: ' + xhr.status + ' ' + xhr.statusText;
+                }
             }
-        });
+
+            if (btn.addEventListener) {
+                btn.addEventListener('click', handleClick, false);
+            } else if (btn.attachEvent) {
+                btn.attachEvent('onclick', handleClick);
+            }
+        })();
     </script>
 </body>
 </html>

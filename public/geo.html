@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geolocation</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Info Bar */
+        #info-bar {
+            width: 100%;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            background: #16213e;
+            color: #8a8a9a;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        #info-bar.success {
+            background: #0a3d2a;
+            color: #4ade80;
+            border-bottom-color: #22c55e;
+        }
+
+        #info-bar.warning {
+            background: #3d2e0a;
+            color: #facc15;
+            border-bottom-color: #eab308;
+        }
+
+        #info-bar.error {
+            background: #3d0a0a;
+            color: #f87171;
+            border-bottom-color: #ef4444;
+        }
+
+        #info-bar.info {
+            background: #0a2a3d;
+            color: #38bdf8;
+            border-bottom-color: #0ea5e9;
+        }
+
+        h1 {
+            margin: 30px 0 10px;
+            font-size: 1.8rem;
+            color: #e2e8f0;
+        }
+
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #btn-permission {
+            background: #0ea5e9;
+            color: #fff;
+        }
+
+        #btn-locate {
+            background: #8b5cf6;
+            color: #fff;
+        }
+
+        #btn-map {
+            background: #22c55e;
+            color: #fff;
+        }
+
+        .icon {
+            font-size: 1.2rem;
+        }
+
+        /* Coordinates display */
+        #coordinates {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 10px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            min-width: 320px;
+            display: none;
+        }
+
+        #coordinates.visible {
+            display: block;
+        }
+
+        #coordinates h2 {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        .coord-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #1e3a5f;
+        }
+
+        .coord-row:last-child {
+            border-bottom: none;
+        }
+
+        .coord-label {
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .coord-value {
+            color: #e2e8f0;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        /* Map container */
+        #map-container {
+            width: 90%;
+            max-width: 800px;
+            height: 450px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #0f3460;
+            margin-bottom: 30px;
+            display: none;
+            background: #16213e;
+        }
+
+        #map-container.visible {
+            display: block;
+        }
+
+        #map-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Permission status badge */
+        #perm-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            background: #1e293b;
+            color: #64748b;
+        }
+
+        #perm-status.granted {
+            background: #0a3d2a;
+            color: #4ade80;
+        }
+
+        #perm-status.denied {
+            background: #3d0a0a;
+            color: #f87171;
+        }
+
+        #perm-status.prompt {
+            background: #3d2e0a;
+            color: #facc15;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Informational Bar -->
+    <div id="info-bar">Ready &mdash; click a button to begin.</div>
+
+    <h1>&#127758; Geolocation</h1>
+    <p class="subtitle">Check permissions, get coordinates, and view your location on a map.</p>
+
+    <!-- Permission badge -->
+    <div id="perm-status">Permission: unknown</div>
+
+    <!-- Buttons -->
+    <div class="controls">
+        <button id="btn-permission" onclick="checkPermission()">
+            <span class="icon">&#128274;</span> Check Permission
+        </button>
+        <button id="btn-locate" onclick="getLocation()">
+            <span class="icon">&#128205;</span> Get Coordinates
+        </button>
+        <button id="btn-map" onclick="showMap()">
+            <span class="icon">&#128506;</span> Show Map
+        </button>
+    </div>
+
+    <!-- Coordinates display -->
+    <div id="coordinates">
+        <h2>Your Coordinates</h2>
+        <div class="coord-row">
+            <span class="coord-label">Latitude</span>
+            <span class="coord-value" id="lat">—</span>
+        </div>
+        <div class="coord-row">
+            <span class="coord-label">Longitude</span>
+            <span class="coord-value" id="lon">—</span>
+        </div>
+        <div class="coord-row">
+            <span class="coord-label">Accuracy</span>
+            <span class="coord-value" id="accuracy">—</span>
+        </div>
+        <div class="coord-row">
+            <span class="coord-label">Altitude</span>
+            <span class="coord-value" id="altitude">—</span>
+        </div>
+        <div class="coord-row">
+            <span class="coord-label">Timestamp</span>
+            <span class="coord-value" id="timestamp">—</span>
+        </div>
+    </div>
+
+    <!-- Map container -->
+    <div id="map-container">
+        <!-- iframe will be injected here -->
+    </div>
+
+    <script>
+        let currentLat = null;
+        let currentLon = null;
+
+        const infoBar     = document.getElementById('info-bar');
+        const permBadge   = document.getElementById('perm-status');
+        const coordsBox   = document.getElementById('coordinates');
+        const mapContainer = document.getElementById('map-container');
+
+        /* ---- Info-bar helpers ---- */
+        function setInfo(message, level = '') {
+            infoBar.textContent = message;
+            infoBar.className = level; // '', 'success', 'warning', 'error', 'info'
+        }
+
+        /* ---- 1. Check / Ask Permission ---- */
+        async function checkPermission() {
+            if (!navigator.geolocation) {
+                setInfo('Geolocation is not supported by your browser.', 'error');
+                return;
+            }
+
+            // Permissions API (Chromium-based browsers)
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const result = await navigator.permissions.query({ name: 'geolocation' });
+                    updatePermBadge(result.state);
+
+                    if (result.state === 'granted') {
+                        setInfo('Geolocation permission is already granted.', 'success');
+                    } else if (result.state === 'denied') {
+                        setInfo('Geolocation permission has been denied. Please enable it in your browser settings.', 'error');
+                    } else {
+                        // 'prompt' – trigger the browser prompt by requesting a position
+                        setInfo('Requesting geolocation permission…', 'info');
+                        requestPermissionViaLocate();
+                    }
+
+                    // Listen for future changes
+                    result.onchange = () => {
+                        updatePermBadge(result.state);
+                        if (result.state === 'denied') {
+                            setInfo('Geolocation permission was revoked.', 'warning');
+                        } else if (result.state === 'granted') {
+                            setInfo('Geolocation permission granted.', 'success');
+                        }
+                    };
+                } catch {
+                    // Fallback: just try to locate
+                    setInfo('Requesting geolocation permission…', 'info');
+                    requestPermissionViaLocate();
+                }
+            } else {
+                // Fallback for browsers without Permissions API
+                setInfo('Requesting geolocation permission…', 'info');
+                requestPermissionViaLocate();
+            }
+        }
+
+        function requestPermissionViaLocate() {
+            navigator.geolocation.getCurrentPosition(
+                () => {
+                    updatePermBadge('granted');
+                    setInfo('Geolocation permission granted.', 'success');
+                },
+                (err) => {
+                    if (err.code === 1) {
+                        updatePermBadge('denied');
+                        setInfo('Permission denied by user.', 'error');
+                    } else {
+                        setInfo('Could not determine permission status.', 'warning');
+                    }
+                }
+            );
+        }
+
+        function updatePermBadge(state) {
+            permBadge.textContent = 'Permission: ' + state;
+            permBadge.className = state; // 'granted' | 'denied' | 'prompt'
+        }
+
+        /* ---- 2. Get Coordinates ---- */
+        function getLocation() {
+            if (!navigator.geolocation) {
+                setInfo('Geolocation is not supported by your browser.', 'error');
+                return;
+            }
+
+            setInfo('Acquiring position…', 'info');
+            const btn = document.getElementById('btn-locate');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Locating…';
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    currentLat = pos.coords.latitude;
+                    currentLon = pos.coords.longitude;
+
+                    document.getElementById('lat').textContent       = currentLat.toFixed(6);
+                    document.getElementById('lon').textContent       = currentLon.toFixed(6);
+                    document.getElementById('accuracy').textContent  = pos.coords.accuracy
+                        ? pos.coords.accuracy.toFixed(1) + ' m' : '—';
+                    document.getElementById('altitude').textContent  = pos.coords.altitude != null
+                        ? pos.coords.altitude.toFixed(1) + ' m' : 'N/A';
+                    document.getElementById('timestamp').textContent = new Date(pos.timestamp).toLocaleString();
+
+                    coordsBox.classList.add('visible');
+                    updatePermBadge('granted');
+                    setInfo('Position acquired successfully.', 'success');
+
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="icon">&#128205;</span> Get Coordinates';
+                },
+                (err) => {
+                    handleGeoError(err);
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="icon">&#128205;</span> Get Coordinates';
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
+
+        /* ---- 3. Show Map ---- */
+        function showMap() {
+            if (currentLat === null || currentLon === null) {
+                setInfo('No coordinates available yet. Click "Get Coordinates" first.', 'warning');
+                return;
+            }
+
+            setInfo('Loading map…', 'info');
+
+            // Use OpenStreetMap embed
+            const url = `https://www.openstreetmap.org/export/embed.html?bbox=${currentLon - 0.01},${currentLat - 0.01},${currentLon + 0.01},${currentLat + 0.01}&layer=mapnik&marker=${currentLat},${currentLon}`;
+
+            mapContainer.innerHTML = `<iframe src="${url}" loading="lazy" allowfullscreen></iframe>`;
+            mapContainer.classList.add('visible');
+
+            setInfo(`Map loaded — centered on ${currentLat.toFixed(4)}, ${currentLon.toFixed(4)}.`, 'success');
+        }
+
+        /* ---- Error handler ---- */
+        function handleGeoError(err) {
+            switch (err.code) {
+                case 1:
+                    updatePermBadge('denied');
+                    setInfo('Permission denied — please allow location access in your browser settings.', 'error');
+                    break;
+                case 2:
+                    setInfo('Position unavailable — your device could not determine its location.', 'error');
+                    break;
+                case 3:
+                    setInfo('Request timed out — try again or move to an area with better signal.', 'warning');
+                    break;
+                default:
+                    setInfo('An unknown error occurred while fetching your location.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
