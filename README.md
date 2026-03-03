@@ -63,7 +63,9 @@ test/
 ├── server.js          # Express server — serves static files on port 3000
 ├── package.json       # Project metadata and scripts
 └── public/
-    └── index.html     # Self-contained single-page application
+    ├── index.html     # JSON Beautifier — single-page application
+    ├── drama.html     # Drama page — fetches content from an external service
+    └── geo.html       # Geolocation — displays location data with an interactive UI
 ```
 
 ## License
