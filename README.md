@@ -4,7 +4,9 @@ A lightweight, single-page web application for beautifying, minifying, and explo
 
 ## Live Demo
 
-👉 **[Try it online](https://heikomayer.github.io/test/public/index.html)**
+- 👉 **[JSON Beautifier](https://heikomayer.github.io/test/public/index.html)**
+- 👉 **[Geolocation](https://heikomayer.github.io/test/public/geo.html)**
+- 👉 **[Drama Page](https://heikomayer.github.io/test/public/drama.html)**
 
 ## Features
 
