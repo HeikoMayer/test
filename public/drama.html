@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drama Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        #start-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 16px;
+            border: 1px solid #ccc;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <button id="start-btn">Start Drama</button>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('start-btn').addEventListener('click', function () {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://emeaie.azurewebsites.net/perf/default.aspx', false);
+            xhr.send();
+            if (xhr.status === 200) {
+                document.getElementById('result').innerHTML = xhr.responseText;
+            } else {
+                document.getElementById('result').textContent = 'Error: ' + xhr.status + ' ' + xhr.statusText;
+            }
+        });
+    </script>
+</body>
+</html>
