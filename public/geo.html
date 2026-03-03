@@ -433,16 +433,16 @@
             switch (err.code) {
                 case 1:
                     updatePermBadge('denied');
-                    setInfo('Permission denied — please allow location access in your browser settings.', 'error');
+                    setInfo(`Permission denied — ${err.message}`, 'error');
                     break;
                 case 2:
-                    setInfo('Position unavailable — your device could not determine its location.', 'error');
+                    setInfo(`Position unavailable — ${err.message}`, 'error');
                     break;
                 case 3:
-                    setInfo('Request timed out — try again or move to an area with better signal.', 'warning');
+                    setInfo(`Request timed out — ${err.message}`, 'warning');
                     break;
                 default:
-                    setInfo('An unknown error occurred while fetching your location.', 'error');
+                    setInfo(`Geolocation error — ${err.message}`, 'error');
             }
         }
     </script>
