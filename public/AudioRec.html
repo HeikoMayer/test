@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Recorder</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; padding: 2rem;
+      background: #f0f2f5; color: #1a1a2e;
+    }
+
+    .card {
+      background: #fff;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      width: 100%; max-width: 480px;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+
+    h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+    .subtitle { font-size: .9rem; color: #6b7685; margin-bottom: 2rem; }
+
+    /* Visualiser */
+    .visualiser-wrap {
+      width: 100%; height: 80px;
+      margin-bottom: 1.5rem;
+      border-radius: 8px;
+      background: #fafbfc;
+      border: 1px solid #dfe3e8;
+      overflow: hidden;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    /* Buttons */
+    .btn-group {
+      display: flex; gap: .75rem;
+      justify-content: center; flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .45rem;
+      padding: .65rem 1.3rem;
+      border: none; border-radius: 8px;
+      font-size: .95rem; font-weight: 500;
+      cursor: pointer; transition: background .2s, transform .1s;
+      user-select: none;
+    }
+    .btn:active:not(:disabled) { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .btn-record { background: #e53935; color: #fff; }
+    .btn-record:hover:not(:disabled) { background: #c62828; }
+    .btn-record.recording { animation: pulse 1s ease-in-out infinite; }
+
+    .btn-play { background: #4361ee; color: #fff; }
+    .btn-play:hover:not(:disabled) { background: #3a56d4; }
+
+    .btn-delete { background: #e8ecf1; color: #3a3f4b; }
+    .btn-delete:hover:not(:disabled) { background: #dce1e8; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(229,57,53,.5); }
+      50%      { box-shadow: 0 0 0 10px rgba(229,57,53,0); }
+    }
+
+    /* Status */
+    .status {
+      font-size: .85rem; color: #6b7685;
+      min-height: 1.4em;
+    }
+    .status.error { color: #c62828; }
+    .status.success { color: #2e7d32; }
+
+    /* Icons via inline SVG in buttons */
+    .icon { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Audio Recorder</h1>
+  <p class="subtitle">Record, play &amp; manage audio clips stored in your browser</p>
+
+  <div class="visualiser-wrap">
+    <canvas id="visualiser"></canvas>
+  </div>
+
+  <div class="btn-group">
+    <!-- Record -->
+    <button class="btn btn-record" id="btnRecord">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>
+      <span id="recordLabel">Record</span>
+    </button>
+
+    <!-- Play -->
+    <button class="btn btn-play" id="btnPlay" disabled>
+      <svg class="icon" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"/></svg>
+      Play
+    </button>
+
+    <!-- Delete -->
+    <button class="btn btn-delete" id="btnDelete" disabled>
+      <svg class="icon" viewBox="0 0 24 24">
+        <path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"/>
+      </svg>
+      Delete
+    </button>
+  </div>
+
+  <p class="status" id="status"></p>
+</div>
+
+<script>
+(() => {
+  // ── DOM refs ──
+  const btnRecord  = document.getElementById('btnRecord');
+  const btnPlay    = document.getElementById('btnPlay');
+  const btnDelete  = document.getElementById('btnDelete');
+  const recordLabel= document.getElementById('recordLabel');
+  const statusEl   = document.getElementById('status');
+  const canvas     = document.getElementById('visualiser');
+  const ctx        = canvas.getContext('2d');
+
+  const STORAGE_KEY = 'recorded_audio';
+
+  // ── State ──
+  let mediaRecorder = null;
+  let audioChunks   = [];
+  let isRecording   = false;
+  let currentAudio  = null;
+
+  // Audio-context for visualiser
+  let audioCtx, analyser, dataArray, sourceNode, animId;
+
+  // ── Helpers ──
+  function setStatus(msg, type = '') {
+    statusEl.textContent = msg;
+    statusEl.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function updateButtons() {
+    const hasRecording = localStorage.getItem(STORAGE_KEY) !== null;
+    btnPlay.disabled   = !hasRecording || isRecording;
+    btnDelete.disabled = !hasRecording || isRecording;
+  }
+
+  // ── Visualiser ──
+  function resizeCanvas() {
+    canvas.width  = canvas.clientWidth  * devicePixelRatio;
+    canvas.height = canvas.clientHeight * devicePixelRatio;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  function drawVisualiser() {
+    animId = requestAnimationFrame(drawVisualiser);
+    if (!analyser) return;
+
+    analyser.getByteTimeDomainData(dataArray);
+    const w = canvas.width, h = canvas.height;
+    ctx.fillStyle = '#fafbfc';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.strokeStyle = isRecording ? '#e53935' : '#4361ee';
+    ctx.beginPath();
+
+    const sliceW = w / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * h) / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceW;
+    }
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+  }
+
+  function startVisualiser(stream) {
+    audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+    analyser   = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray  = new Uint8Array(analyser.frequencyBinCount);
+    sourceNode = audioCtx.createMediaStreamSource(stream);
+    sourceNode.connect(analyser);
+    drawVisualiser();
+  }
+
+  function stopVisualiser() {
+    cancelAnimationFrame(animId);
+    if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
+    if (audioCtx)   { audioCtx.close(); audioCtx = null; }
+    analyser = null;
+    // Draw flat line
+    const w = canvas.width, h = canvas.height;
+    ctx.fillStyle = '#fafbfc';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#c5cdd8';
+    ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+  }
+
+  // Draw initial flat line
+  stopVisualiser();
+
+  // ── Record ──
+  btnRecord.addEventListener('click', async () => {
+    if (isRecording) {
+      // Stop recording
+      mediaRecorder.stop();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        // Stop all tracks
+        stream.getTracks().forEach(t => t.stop());
+        stopVisualiser();
+
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          try {
+            localStorage.setItem(STORAGE_KEY, reader.result);
+            setStatus('Recording saved (' + (blob.size / 1024).toFixed(1) + ' KB)', 'success');
+          } catch (err) {
+            setStatus('Storage full – recording too large for localStorage', 'error');
+          }
+          updateButtons();
+        };
+        reader.readAsDataURL(blob);
+
+        isRecording = false;
+        btnRecord.classList.remove('recording');
+        recordLabel.textContent = 'Record';
+        updateButtons();
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      btnRecord.classList.add('recording');
+      recordLabel.textContent = 'Stop';
+      setStatus('Recording…');
+      updateButtons();
+      startVisualiser(stream);
+
+    } catch (err) {
+      setStatus('Microphone access denied', 'error');
+    }
+  });
+
+  // ── Play ──
+  btnPlay.addEventListener('click', () => {
+    const dataUrl = localStorage.getItem(STORAGE_KEY);
+    if (!dataUrl) return;
+
+    // Stop any currently playing audio
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+
+    currentAudio = new Audio(dataUrl);
+    currentAudio.onended = () => {
+      setStatus('Playback finished');
+      btnPlay.disabled = false;
+    };
+    currentAudio.onerror = () => {
+      setStatus('Playback error', 'error');
+      btnPlay.disabled = false;
+    };
+    currentAudio.play();
+    setStatus('Playing…');
+  });
+
+  // ── Delete ──
+  btnDelete.addEventListener('click', () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    setStatus('Recording deleted');
+    updateButtons();
+  });
+
+  // ── Init ──
+  updateButtons();
+  if (localStorage.getItem(STORAGE_KEY)) {
+    setStatus('A saved recording is available');
+  }
+})();
+</script>
+
+</body>
+</html>
