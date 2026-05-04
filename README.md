@@ -8,6 +8,7 @@ A lightweight, single-page web application for beautifying, minifying, and explo
 - 👉 **[Geolocation](https://heikomayer.github.io/test/public/geo.html)**
 - 👉 **[Drama Page](https://heikomayer.github.io/test/public/drama.html)**
 - 👉 **[Audio Recorder](https://heikomayer.github.io/test/public/AudioRec.html)**
+- 👉 **[Web Notifications](https://heikomayer.github.io/test/public/notify.html)**
 
 ## Features
 
@@ -69,7 +70,9 @@ test/
     ├── index.html     # JSON Beautifier — single-page application
     ├── drama.html     # Drama page — fetches content from an external service
     ├── geo.html       # Geolocation — displays location data with an interactive UI
-    └── AudioRec.html  # Audio Recorder — record, play & delete audio clips via localStorage
+    ├── AudioRec.html  # Audio Recorder — record, play & delete audio clips via localStorage
+    ├── notify.html    # Web Notifications — send notifications with an action to open example.com
+    └── notify-sw.js   # Service worker handling notification action clicks
 ```
 
 ## License

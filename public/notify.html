@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <title>Web Notifications</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 2.5rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        p.subtitle {
+            font-size: 0.95rem;
+            color: #8a8a9a;
+            margin-bottom: 1.5rem;
+        }
+
+        #status {
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        #status.granted {
+            background: #0a3d2a;
+            color: #4ade80;
+            border: 1px solid #22c55e;
+        }
+
+        #status.denied {
+            background: #3d0a0a;
+            color: #f87171;
+            border: 1px solid #ef4444;
+        }
+
+        #status.default {
+            background: #3d2e0a;
+            color: #facc15;
+            border: 1px solid #eab308;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin: 0.4rem;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: #4361ee;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #3a56d4;
+        }
+
+        .btn-primary:disabled {
+            background: #2a2a4a;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #0f3460;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #1a4a7a;
+        }
+
+        .btn-secondary:disabled {
+            background: #2a2a4a;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Web Notifications</h1>
+        <p class="subtitle">Request permission and send a notification with an action.</p>
+
+        <div id="status" class="default">Permission: default</div>
+
+        <div class="actions">
+            <button class="btn btn-secondary" id="btnPermission" onclick="requestPermission()">
+                Request Permission
+            </button>
+            <button class="btn btn-primary" id="btnNotify" onclick="sendNotification()" disabled>
+                Send Notification
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const btnPermission = document.getElementById('btnPermission');
+        const btnNotify = document.getElementById('btnNotify');
+
+        function updateStatus() {
+            if (!('Notification' in window)) {
+                statusEl.textContent = 'Notifications not supported in this browser';
+                statusEl.className = 'denied';
+                btnPermission.disabled = true;
+                btnNotify.disabled = true;
+                return;
+            }
+
+            const perm = Notification.permission;
+            statusEl.textContent = 'Permission: ' + perm;
+            statusEl.className = perm;
+
+            btnPermission.disabled = perm !== 'default';
+            btnNotify.disabled = perm !== 'granted';
+        }
+
+        function requestPermission() {
+            Notification.requestPermission().then(function (result) {
+                updateStatus();
+            });
+        }
+
+        function sendNotification() {
+            if (Notification.permission !== 'granted') return;
+
+            // Register a service worker to support notification actions
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('notify-sw.js').then(function (registration) {
+                    registration.showNotification('Hello from Web Notifications!', {
+                        body: 'Click the action below to visit example.com.',
+                        icon: 'favicon.ico',
+                        actions: [
+                            { action: 'open-example', title: 'Open example.com' }
+                        ]
+                    });
+                }).catch(function () {
+                    // Fallback: basic notification without actions
+                    showBasicNotification();
+                });
+            } else {
+                showBasicNotification();
+            }
+        }
+
+        function showBasicNotification() {
+            var notification = new Notification('Hello from Web Notifications!', {
+                body: 'Click to visit example.com.',
+                icon: 'favicon.ico'
+            });
+            notification.onclick = function () {
+                window.open('https://www.example.com', '_blank');
+                notification.close();
+            };
+        }
+
+        updateStatus();
+    </script>
+</body>
+</html>
